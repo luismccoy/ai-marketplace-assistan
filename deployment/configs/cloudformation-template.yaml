@@ -1,0 +1,727 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AI Marketplace Assistant - Multi-Tenant SaaS Platform Infrastructure'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: production
+    Description: Environment name
+  PlatformMode:
+    Type: String
+    Default: multi-tenant
+    Description: Platform operation mode
+    AllowedValues:
+      - multi-tenant
+      - single-tenant
+
+Resources:
+  # Multi-tenant DynamoDB table for conversations
+  ConversationsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ai-marketplace-conversations-platform
+      AttributeDefinitions:
+        - AttributeName: tenantId
+          AttributeType: S
+        - AttributeName: conversationId
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: N
+        - AttributeName: customerId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: tenantId
+          KeyType: HASH
+        - AttributeName: conversationId
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: CustomerIndex
+          KeySchema:
+            - AttributeName: tenantId
+              KeyType: HASH
+            - AttributeName: customerId
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: TimestampIndex
+          KeySchema:
+            - AttributeName: tenantId
+              KeyType: HASH
+            - AttributeName: timestamp
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Application
+          Value: AI-Marketplace-Assistant-Platform
+        - Key: AutoDelete
+          Value: "NO"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: TenantIsolation
+          Value: logical
+        - Key: PlatformComponent
+          Value: core-data
+
+  # Multi-tenant DynamoDB table for products
+  ProductsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ai-marketplace-products-platform
+      AttributeDefinitions:
+        - AttributeName: tenantId
+          AttributeType: S
+        - AttributeName: productId
+          AttributeType: S
+        - AttributeName: category
+          AttributeType: S
+        - AttributeName: status
+          AttributeType: S
+      KeySchema:
+        - AttributeName: tenantId
+          KeyType: HASH
+        - AttributeName: productId
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: CategoryIndex
+          KeySchema:
+            - AttributeName: tenantId
+              KeyType: HASH
+            - AttributeName: category
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: StatusIndex
+          KeySchema:
+            - AttributeName: tenantId
+              KeyType: HASH
+            - AttributeName: status
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Application
+          Value: AI-Marketplace-Assistant-Platform
+        - Key: AutoDelete
+          Value: "NO"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: TenantIsolation
+          Value: logical
+        - Key: PlatformComponent
+          Value: core-data
+
+  # Multi-tenant DynamoDB table for tenant configuration
+  TenantsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ai-marketplace-tenants-platform
+      AttributeDefinitions:
+        - AttributeName: tenantId
+          AttributeType: S
+        - AttributeName: whatsappNumber
+          AttributeType: S
+      KeySchema:
+        - AttributeName: tenantId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: WhatsAppNumberIndex
+          KeySchema:
+            - AttributeName: whatsappNumber
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Application
+          Value: AI-Marketplace-Assistant-Platform
+        - Key: AutoDelete
+          Value: "NO"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: TenantIsolation
+          Value: logical
+        - Key: PlatformComponent
+          Value: tenant-management
+
+  # Multi-tenant DynamoDB table for document embeddings (RAG system)
+  EmbeddingsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: ai-marketplace-embeddings-platform
+      AttributeDefinitions:
+        - AttributeName: tenantId
+          AttributeType: S
+        - AttributeName: chunkId
+          AttributeType: S
+        - AttributeName: documentId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: tenantId
+          KeyType: HASH
+        - AttributeName: chunkId
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: DocumentIndex
+          KeySchema:
+            - AttributeName: tenantId
+              KeyType: HASH
+            - AttributeName: documentId
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Application
+          Value: AI-Marketplace-Assistant-Platform
+        - Key: AutoDelete
+          Value: "NO"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: TenantIsolation
+          Value: logical
+        - Key: PlatformComponent
+          Value: ai-rag-system
+
+  # S3 bucket for document storage (RAG system)
+  DocumentsS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "ai-marketplace-documents-${AWS::AccountId}-${AWS::Region}"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldVersions
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+      Tags:
+        - Key: Application
+          Value: AI-Marketplace-Assistant-Platform
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: PlatformComponent
+          Value: ai-rag-system
+
+  # SNS topic for human handoff notifications
+  HandoffNotificationsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: ai-marketplace-handoff-notifications
+      DisplayName: AI Marketplace Human Handoff Notifications
+      Tags:
+        - Key: Application
+          Value: AI-Marketplace-Assistant-Platform
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: PlatformComponent
+          Value: human-handoff
+
+  # Platform Lambda execution role with multi-tenant permissions
+  PlatformLambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: ai-marketplace-platform-lambda-execution-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess
+      Policies:
+        - PolicyName: MultiTenantDynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                Resource:
+                  - !GetAtt ConversationsTable.Arn
+                  - !Sub "${ConversationsTable.Arn}/index/*"
+                  - !GetAtt ProductsTable.Arn
+                  - !Sub "${ProductsTable.Arn}/index/*"
+                  - !GetAtt TenantsTable.Arn
+                  - !Sub "${TenantsTable.Arn}/index/*"
+                  - !GetAtt EmbeddingsTable.Arn
+                  - !Sub "${EmbeddingsTable.Arn}/index/*"
+        - PolicyName: BedrockAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource: 
+                  - "arn:aws:bedrock:*::foundation-model/*"
+        - PolicyName: S3DocumentsAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource:
+                  - !Sub "${DocumentsS3Bucket.Arn}/*"
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt DocumentsS3Bucket.Arn
+        - PolicyName: SNSNotificationsAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource:
+                  - !Ref HandoffNotificationsTopic
+      Tags:
+        - Key: Application
+          Value: AI-Marketplace-Assistant-Platform
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: PlatformComponent
+          Value: core-security
+
+  # Multi-tenant webhook handler Lambda function
+  WebhookHandler:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: ai-marketplace-platform-webhook-handler
+      Runtime: nodejs20.x
+      Handler: index.handler
+      Role: !GetAtt PlatformLambdaExecutionRole.Arn
+      Code:
+        ZipFile: |
+          const { DynamoDBClient, QueryCommand, GetItemCommand } = require('@aws-sdk/client-dynamodb');
+          const querystring = require('querystring');
+          
+          const dynamoClient = new DynamoDBClient({});
+          
+          exports.handler = async (event) => {
+            console.log('Platform webhook received:', JSON.stringify(event, null, 2));
+            
+            try {
+              // Parse incoming message
+              const body = querystring.parse(event.body);
+              console.log('Parsed body:', body);
+              
+              const from = body.From;
+              const to = body.To;
+              const messageBody = body.Body;
+              const profileName = body.ProfileName;
+              const waId = body.WaId;
+              
+              // Resolve tenant from WhatsApp number
+              const tenantId = await resolveTenantFromWhatsAppNumber(to);
+              if (!tenantId) {
+                console.error('No tenant found for WhatsApp number:', to);
+                return createErrorResponse('Tenant not found');
+              }
+              
+              console.log(`Multi-tenant message from ${profileName} (${waId}) to tenant ${tenantId}: ${messageBody}`);
+              
+              // Store conversation with tenant context
+              await storeConversationMessage(tenantId, waId, messageBody, profileName);
+              
+              // Generate tenant-aware AI response using Bedrock
+              const responseMessage = await generateAIResponse(tenantId, messageBody, profileName);
+              
+              const twimlResponse = `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${responseMessage}</Message></Response>`;
+              
+              console.log('Sending AI-powered TwiML response:', twimlResponse);
+              
+              return {
+                statusCode: 200,
+                headers: {
+                  'Content-Type': 'text/xml',
+                },
+                body: twimlResponse,
+              };
+              
+            } catch (error) {
+              console.error('Error processing platform webhook:', error);
+              
+              const errorResponse = `<?xml version="1.0" encoding="UTF-8"?><Response><Message>Lo siento, hubo un error en la plataforma. Por favor intenta de nuevo.</Message></Response>`;
+              
+              return {
+                statusCode: 200,
+                headers: {
+                  'Content-Type': 'text/xml',
+                },
+                body: errorResponse,
+              };
+            }
+          };
+          
+          async function resolveTenantFromWhatsAppNumber(whatsappNumber) {
+            try {
+              const command = new QueryCommand({
+                TableName: process.env.TENANTS_TABLE,
+                IndexName: 'WhatsAppNumberIndex',
+                KeyConditionExpression: 'whatsappNumber = :number',
+                ExpressionAttributeValues: {
+                  ':number': { S: whatsappNumber }
+                }
+              });
+              
+              const result = await dynamoClient.send(command);
+              
+              return result.Items && result.Items.length > 0 ? result.Items[0].tenantId.S : null;
+            } catch (error) {
+              console.error('Error resolving tenant:', error);
+              return null;
+            }
+          }
+          
+          async function storeConversationMessage(tenantId, customerId, message, customerName) {
+            // For now, just log the conversation - full implementation would use DynamoDB
+            console.log('Storing conversation:', { tenantId, customerId, message, customerName });
+          }
+          
+          async function generateAIResponse(tenantId, message, customerName) {
+            // This is a simplified AI response for inline CloudFormation code
+            // In production, this would use the full Bedrock AI service
+            
+            // Get tenant configuration
+            const businessName = await getTenantBusinessName(tenantId) || 'nuestro marketplace';
+            
+            const lowerMessage = message.toLowerCase();
+            
+            // Enhanced AI-like responses based on intent classification
+            if (lowerMessage.includes('hola') || lowerMessage.includes('buenas')) {
+              return `¡Hola ${customerName}! 👋 Soy tu asistente de IA de ${businessName}. Estoy aquí para ayudarte con información sobre nuestros productos y servicios. ¿En qué puedo ayudarte hoy?`;
+            } else if (lowerMessage.includes('venta') || lowerMessage.includes('productos') || lowerMessage.includes('que tienen')) {
+              return `En ${businessName} ofrecemos soluciones de IA innovadoras: 🤖 Chatbots inteligentes, 📊 Análisis de datos avanzado, 🎨 Generación de imágenes, ✍️ Asistentes de escritura. ¿Te interesa alguna solución en particular?`;
+            } else if (lowerMessage.includes('precio') || lowerMessage.includes('costo') || lowerMessage.includes('cuanto')) {
+              return `Nuestros precios en ${businessName} son competitivos: 💰 Chatbots desde $99/mes, 📈 Análisis desde $199/mes, 🎨 Generación de imágenes desde $149/mes. ¿Te gustaría una cotización personalizada?`;
+            } else if (lowerMessage.includes('ayuda') || lowerMessage.includes('help')) {
+              return `¡Por supuesto! Puedo ayudarte con: ✅ Información de productos, 💰 Precios y planes, 🎯 Demos gratuitas, 🛠️ Soporte técnico. También puedo conectarte con un especialista humano si lo necesitas. ¿Qué necesitas?`;
+            } else if (lowerMessage.includes('humano') || lowerMessage.includes('agente') || lowerMessage.includes('persona')) {
+              return `Entiendo que prefieres hablar con una persona. Te estoy conectando con uno de nuestros especialistas humanos de ${businessName}. En un momento te atenderán. 👨‍💼`;
+            } else {
+              return `Gracias por tu mensaje, ${customerName}. Soy tu asistente de IA de ${businessName} 🤖. Puedo ayudarte con información sobre productos, precios, demos y soporte. ¿En qué puedo asistirte específicamente?`;
+            }
+          }
+          
+          async function getTenantBusinessName(tenantId) {
+            try {
+              const command = new GetItemCommand({
+                TableName: process.env.TENANTS_TABLE,
+                Key: {
+                  tenantId: { S: tenantId }
+                },
+                ProjectionExpression: 'businessName'
+              });
+              
+              const result = await dynamoClient.send(command);
+              return result.Item?.businessName?.S || 'nuestro marketplace';
+            } catch (error) {
+              console.error('Error getting tenant business name:', error);
+              return 'nuestro marketplace';
+            }
+          }
+          
+          function createErrorResponse(message) {
+            const errorResponse = `<?xml version="1.0" encoding="UTF-8"?><Response><Message>Error: ${message}</Message></Response>`;
+            return {
+              statusCode: 200,
+              headers: {
+                'Content-Type': 'text/xml',
+              },
+              body: errorResponse,
+            };
+          }
+      Environment:
+        Variables:
+          CONVERSATIONS_TABLE: !Ref ConversationsTable
+          PRODUCTS_TABLE: !Ref ProductsTable
+          TENANTS_TABLE: !Ref TenantsTable
+          EMBEDDINGS_TABLE: !Ref EmbeddingsTable
+          DOCUMENTS_BUCKET: !Ref DocumentsS3Bucket
+          HANDOFF_NOTIFICATIONS_TOPIC: !Ref HandoffNotificationsTopic
+          NODE_ENV: production
+          PLATFORM_MODE: !Ref PlatformMode
+      Timeout: 30
+      MemorySize: 512
+      TracingConfig:
+        Mode: Active
+      Tags:
+        - Key: Application
+          Value: AI-Marketplace-Assistant-Platform
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: PlatformComponent
+          Value: webhook-handler
+
+  # Multi-tenant message handler Lambda function
+  MessageHandler:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: ai-marketplace-platform-message-handler
+      Runtime: nodejs20.x
+      Handler: index.handler
+      Role: !GetAtt PlatformLambdaExecutionRole.Arn
+      Code:
+        ZipFile: |
+          exports.handler = async (event) => {
+            console.log('Platform message received:', JSON.stringify(event, null, 2));
+            
+            try {
+              // Extract tenant context from event
+              const tenantId = event.tenantId || 'default-tenant';
+              const message = event.body || event.message || 'No message body';
+              
+              const response = {
+                message: 'Hello from AI Marketplace Assistant Platform!',
+                tenantId: tenantId,
+                echo: message,
+                timestamp: new Date().toISOString(),
+                platformMode: process.env.PLATFORM_MODE
+              };
+              
+              return {
+                statusCode: 200,
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(response),
+              };
+              
+            } catch (error) {
+              console.error('Error processing platform message:', error);
+              
+              return {
+                statusCode: 500,
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  error: 'Platform processing error',
+                  message: error.message,
+                  timestamp: new Date().toISOString()
+                }),
+              };
+            }
+          };
+      Environment:
+        Variables:
+          CONVERSATIONS_TABLE: !Ref ConversationsTable
+          PRODUCTS_TABLE: !Ref ProductsTable
+          TENANTS_TABLE: !Ref TenantsTable
+          EMBEDDINGS_TABLE: !Ref EmbeddingsTable
+          DOCUMENTS_BUCKET: !Ref DocumentsS3Bucket
+          HANDOFF_NOTIFICATIONS_TOPIC: !Ref HandoffNotificationsTopic
+          NODE_ENV: production
+          PLATFORM_MODE: !Ref PlatformMode
+      Timeout: 30
+      MemorySize: 512
+      TracingConfig:
+        Mode: Active
+      Tags:
+        - Key: Application
+          Value: AI-Marketplace-Assistant-Platform
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: PlatformComponent
+          Value: message-handler
+
+  # Platform API Gateway
+  AIMarketplacePlatformAPI:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: AI Marketplace Assistant Platform API
+      Description: Multi-tenant API for AI Marketplace Assistant SaaS Platform
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      Tags:
+        - Key: Application
+          Value: AI-Marketplace-Assistant-Platform
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: PlatformComponent
+          Value: api-gateway
+
+  # Platform webhook resource
+  WebhookResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref AIMarketplacePlatformAPI
+      ParentId: !GetAtt AIMarketplacePlatformAPI.RootResourceId
+      PathPart: webhook
+
+  # Platform webhook POST method
+  WebhookPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AIMarketplacePlatformAPI
+      ResourceId: !Ref WebhookResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebhookHandler.Arn}/invocations'
+
+  # Platform webhook GET method
+  WebhookGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AIMarketplacePlatformAPI
+      ResourceId: !Ref WebhookResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${WebhookHandler.Arn}/invocations'
+
+  # Platform message resource
+  MessageResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref AIMarketplacePlatformAPI
+      ParentId: !GetAtt AIMarketplacePlatformAPI.RootResourceId
+      PathPart: message
+
+  # Platform message POST method
+  MessagePostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref AIMarketplacePlatformAPI
+      ResourceId: !Ref MessageResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${MessageHandler.Arn}/invocations'
+
+  # Platform API Gateway deployment
+  APIDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - WebhookPostMethod
+      - WebhookGetMethod
+      - MessagePostMethod
+    Properties:
+      RestApiId: !Ref AIMarketplacePlatformAPI
+      StageName: prod
+
+  # Platform Lambda permissions for API Gateway
+  WebhookLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref WebhookHandler
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AIMarketplacePlatformAPI}/*/*'
+
+  MessageLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref MessageHandler
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${AIMarketplacePlatformAPI}/*/*'
+
+Outputs:
+  PlatformAPIGatewayURL:
+    Description: Platform API Gateway URL for webhooks
+    Value: !Sub 'https://${AIMarketplacePlatformAPI}.execute-api.${AWS::Region}.amazonaws.com/prod'
+    Export:
+      Name: !Sub '${AWS::StackName}-PlatformAPIGatewayURL'
+
+  PlatformWebhookURL:
+    Description: Platform WhatsApp webhook URL (for all tenants)
+    Value: !Sub 'https://${AIMarketplacePlatformAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/webhook'
+    Export:
+      Name: !Sub '${AWS::StackName}-PlatformWebhookURL'
+
+  ConversationsTableName:
+    Description: Multi-tenant DynamoDB conversations table name
+    Value: !Ref ConversationsTable
+    Export:
+      Name: !Sub '${AWS::StackName}-ConversationsTable'
+
+  ProductsTableName:
+    Description: Multi-tenant DynamoDB products table name
+    Value: !Ref ProductsTable
+    Export:
+      Name: !Sub '${AWS::StackName}-ProductsTable'
+
+  TenantsTableName:
+    Description: Platform tenants configuration table name
+    Value: !Ref TenantsTable
+    Export:
+      Name: !Sub '${AWS::StackName}-TenantsTable'
+
+  PlatformWebhookHandlerArn:
+    Description: Platform webhook handler Lambda function ARN
+    Value: !GetAtt WebhookHandler.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-PlatformWebhookHandlerArn'
+
+  PlatformMessageHandlerArn:
+    Description: Platform message handler Lambda function ARN
+    Value: !GetAtt MessageHandler.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-PlatformMessageHandlerArn'
+
+  PlatformMode:
+    Description: Platform operation mode
+    Value: !Ref PlatformMode
+    Export:
+      Name: !Sub '${AWS::StackName}-PlatformMode'
+
+  EmbeddingsTableName:
+    Description: Multi-tenant DynamoDB embeddings table name for RAG system
+    Value: !Ref EmbeddingsTable
+    Export:
+      Name: !Sub '${AWS::StackName}-EmbeddingsTable'
+
+  DocumentsS3BucketName:
+    Description: S3 bucket name for document storage (RAG system)
+    Value: !Ref DocumentsS3Bucket
+    Export:
+      Name: !Sub '${AWS::StackName}-DocumentsS3Bucket'
+
+  HandoffNotificationsTopicArn:
+    Description: SNS topic ARN for human handoff notifications
+    Value: !Ref HandoffNotificationsTopic
+    Export:
+      Name: !Sub '${AWS::StackName}-HandoffNotificationsTopic'

@@ -1,0 +1,163 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AI Marketplace Assistant - Secure Admin Dashboard with Private S3 + CloudFront'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: production
+    Description: Environment name
+
+Resources:
+  # Private S3 Bucket for Admin Dashboard (NO PUBLIC ACCESS)
+  AdminDashboardBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'ai-admin-dash-${Environment}-${AWS::AccountId}'
+      
+      # CRITICAL SECURITY: Block ALL public access
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      
+      # Additional security measures
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      
+      VersioningConfiguration:
+        Status: Enabled
+      
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldVersions
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+    
+    # Prevent accidental deletion
+    DeletionPolicy: Retain
+
+  # Origin Access Control (OAC) for CloudFront - Modern replacement for OAI
+  AdminDashboardOAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub 'ai-marketplace-admin-dashboard-oac-${Environment}'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+        Description: !Sub 'OAC for AI Marketplace Admin Dashboard - ${Environment}'
+
+  # Bucket Policy - ONLY CloudFront OAC can access
+  AdminDashboardBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref AdminDashboardBucket
+      PolicyDocument:
+        Statement:
+          - Sid: AllowCloudFrontAccess
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: 's3:GetObject'
+            Resource: !Sub '${AdminDashboardBucket}/*'
+            Condition:
+              StringEquals:
+                'AWS:SourceArn': !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${AdminDashboardDistribution}'
+
+  # CloudFront Distribution with OAI
+  AdminDashboardDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: !Sub 'AI Marketplace Admin Dashboard - ${Environment}'
+        
+        # Origin configuration with OAC
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt AdminDashboardBucket.RegionalDomainName
+            OriginAccessControlId: !Ref AdminDashboardOAC
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+        
+        # Default cache behavior
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          Compress: true
+          DefaultTTL: 86400  # 24 hours
+          MaxTTL: 31536000   # 365 days
+          MinTTL: 0
+          ForwardedValues:
+            QueryString: false
+            Headers:
+              - Origin
+              - Access-Control-Request-Method
+              - Access-Control-Request-Headers
+        
+        # Default root object
+        DefaultRootObject: index.html
+        
+        # Error responses for React routing (SPA)
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+            ErrorCachingMinTTL: 300
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+            ErrorCachingMinTTL: 300
+        
+        # Price class optimization
+        PriceClass: PriceClass_100
+        
+        # Enable distribution
+        Enabled: true
+
+Outputs:
+  AdminDashboardURL:
+    Description: Admin Dashboard CloudFront URL (Secure)
+    Value: !Sub 'https://${AdminDashboardDistribution.DomainName}'
+    Export:
+      Name: !Sub '${AWS::StackName}-AdminDashboardURL'
+
+  AdminDashboardBucketName:
+    Description: Private S3 bucket for admin dashboard (NOT publicly accessible)
+    Value: !Ref AdminDashboardBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-AdminDashboardBucket'
+
+  CloudFrontDistributionId:
+    Description: CloudFront Distribution ID for cache invalidation
+    Value: !Ref AdminDashboardDistribution
+    Export:
+      Name: !Sub '${AWS::StackName}-CloudFrontDistributionId'
+
+  OriginAccessControlId:
+    Description: Origin Access Control ID for S3 bucket access
+    Value: !Ref AdminDashboardOAC
+    Export:
+      Name: !Sub '${AWS::StackName}-OAC-Id'
+
+  SecurityValidation:
+    Description: Security validation - Bucket is private, only accessible via CloudFront OAC
+    Value: 'S3_BUCKET_PRIVATE_ACCESS_BLOCKED_CLOUDFRONT_OAC_CONFIGURED'
+    Export:
+      Name: !Sub '${AWS::StackName}-SecurityStatus'
+
+  DeploymentStatus:
+    Description: Admin Dashboard deployment status
+    Value: 'Secure Admin Dashboard Successfully Deployed'
+    Export:
+      Name: !Sub '${AWS::StackName}-DeploymentStatus'

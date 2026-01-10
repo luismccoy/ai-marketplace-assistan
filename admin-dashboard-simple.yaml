@@ -1,0 +1,94 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AI Marketplace Assistant - Simple Admin Dashboard with S3 + CloudFront'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: production
+    Description: Environment name
+
+Resources:
+  # Private S3 Bucket for Admin Dashboard
+  AdminDashboardBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'ai-admin-dash-${Environment}-${AWS::AccountId}'
+      
+      # Security settings
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      
+      VersioningConfiguration:
+        Status: Enabled
+    
+    DeletionPolicy: Retain
+
+  # CloudFront Distribution
+  AdminDashboardDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: !Sub 'AI Marketplace Admin Dashboard - ${Environment}'
+        
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt AdminDashboardBucket.RegionalDomainName
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+        
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+          Compress: true
+          DefaultTTL: 86400
+          MaxTTL: 31536000
+          MinTTL: 0
+          ForwardedValues:
+            QueryString: false
+        
+        DefaultRootObject: index.html
+        
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+        
+        PriceClass: PriceClass_100
+        Enabled: true
+
+Outputs:
+  AdminDashboardURL:
+    Description: Admin Dashboard CloudFront URL
+    Value: !Sub 'https://${AdminDashboardDistribution.DomainName}'
+    Export:
+      Name: !Sub '${AWS::StackName}-AdminDashboardURL'
+
+  AdminDashboardBucketName:
+    Description: S3 bucket for admin dashboard
+    Value: !Ref AdminDashboardBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-AdminDashboardBucket'
+
+  CloudFrontDistributionId:
+    Description: CloudFront Distribution ID
+    Value: !Ref AdminDashboardDistribution
+    Export:
+      Name: !Sub '${AWS::StackName}-CloudFrontDistributionId'

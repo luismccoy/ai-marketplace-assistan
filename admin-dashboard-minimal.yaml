@@ -1,0 +1,71 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AI Marketplace Assistant - Admin Dashboard Infrastructure'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: production
+    Description: Environment name
+
+Resources:
+  # S3 Bucket for Admin Dashboard
+  AdminDashboardBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'ai-marketplace-admin-dashboard-${Environment}-${AWS::AccountId}'
+      
+      # Website configuration
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: index.html
+      
+      # CORS configuration for API calls
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: [GET, POST, PUT, DELETE, HEAD]
+            AllowedOrigins: ['*']
+            MaxAge: 3000
+      
+      # Versioning
+      VersioningConfiguration:
+        Status: Enabled
+      
+      # Lifecycle management
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldVersions
+            Status: Enabled
+            NoncurrentVersionExpirationInDays: 30
+
+  # Bucket Policy for public read access (for static website)
+  AdminDashboardBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref AdminDashboardBucket
+      PolicyDocument:
+        Statement:
+          - Sid: PublicReadGetObject
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Sub '${AdminDashboardBucket}/*'
+
+Outputs:
+  AdminDashboardURL:
+    Description: Admin Dashboard S3 Website URL
+    Value: !GetAtt AdminDashboardBucket.WebsiteURL
+    Export:
+      Name: !Sub '${AWS::StackName}-AdminDashboardURL'
+
+  AdminDashboardBucketName:
+    Description: S3 bucket for admin dashboard
+    Value: !Ref AdminDashboardBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-AdminDashboardBucket'
+
+  DeploymentStatus:
+    Description: Admin Dashboard deployment status
+    Value: 'Admin Dashboard Infrastructure Successfully Deployed'
+    Export:
+      Name: !Sub '${AWS::StackName}-DeploymentStatus'

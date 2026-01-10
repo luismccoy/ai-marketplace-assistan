@@ -1,0 +1,1780 @@
+Description: AI Marketplace Assistant - Simple Stack (production)
+Resources:
+  TenantsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: tenantId
+          AttributeType: S
+        - AttributeName: whatsappNumber
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      GlobalSecondaryIndexes:
+        - IndexName: WhatsAppNumberIndex
+          KeySchema:
+            - AttributeName: whatsappNumber
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      KeySchema:
+        - AttributeName: tenantId
+          KeyType: HASH
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      TableName: ai-marketplace-tenants-platform
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/TenantsTable/Resource
+  ConversationsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: tenantId
+          AttributeType: S
+        - AttributeName: conversationId
+          AttributeType: S
+        - AttributeName: customerId
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: "N"
+      BillingMode: PAY_PER_REQUEST
+      GlobalSecondaryIndexes:
+        - IndexName: CustomerIndex
+          KeySchema:
+            - AttributeName: tenantId
+              KeyType: HASH
+            - AttributeName: customerId
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: TimestampIndex
+          KeySchema:
+            - AttributeName: tenantId
+              KeyType: HASH
+            - AttributeName: timestamp
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      KeySchema:
+        - AttributeName: tenantId
+          KeyType: HASH
+        - AttributeName: conversationId
+          KeyType: RANGE
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      TableName: ai-marketplace-conversations-platform
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/ConversationsTable/Resource
+  ProductsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: tenantId
+          AttributeType: S
+        - AttributeName: productId
+          AttributeType: S
+        - AttributeName: status
+          AttributeType: S
+        - AttributeName: category
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      GlobalSecondaryIndexes:
+        - IndexName: StatusIndex
+          KeySchema:
+            - AttributeName: tenantId
+              KeyType: HASH
+            - AttributeName: status
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: CategoryIndex
+          KeySchema:
+            - AttributeName: tenantId
+              KeyType: HASH
+            - AttributeName: category
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      KeySchema:
+        - AttributeName: tenantId
+          KeyType: HASH
+        - AttributeName: productId
+          KeyType: RANGE
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      TableName: ai-marketplace-products-platform
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/ProductsTable/Resource
+  EmbeddingsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: tenantId
+          AttributeType: S
+        - AttributeName: chunkId
+          AttributeType: S
+        - AttributeName: documentId
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      GlobalSecondaryIndexes:
+        - IndexName: DocumentIndex
+          KeySchema:
+            - AttributeName: tenantId
+              KeyType: HASH
+            - AttributeName: documentId
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      KeySchema:
+        - AttributeName: tenantId
+          KeyType: HASH
+        - AttributeName: chunkId
+          KeyType: RANGE
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      TableName: ai-marketplace-embeddings-platform
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/EmbeddingsTable/Resource
+  HandoffNotificationsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: AI Marketplace Assistant Escalations
+      TopicName: ai-marketplace-handoff-notifications
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/EscalationTopic/Resource
+  DocumentsS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      BucketName: ai-marketplace-documents-747680064475-us-east-1
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/DocumentsBucket/Resource
+  ProductImagesBucket03BDA4C8:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: ai-marketplace-product-images-747680064475-us-east-1
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - "*"
+            AllowedMethods:
+              - GET
+              - PUT
+              - POST
+            AllowedOrigins:
+              - "*"
+            MaxAge: 3000
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/ProductImagesBucket/Resource
+  UserPool6BA7E5F2:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_phone_number
+            Priority: 1
+          - Name: verified_email
+            Priority: 2
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: false
+      AutoVerifiedAttributes:
+        - email
+      EmailVerificationMessage: The verification code to your new account is {####}
+      EmailVerificationSubject: Verify your new account
+      Schema:
+        - Mutable: true
+          Name: email
+          Required: true
+        - AttributeDataType: String
+          Mutable: true
+          Name: tenantId
+      SmsVerificationMessage: The verification code to your new account is {####}
+      UserPoolName: ai-marketplace-tenants
+      UsernameAttributes:
+        - email
+      VerificationMessageTemplate:
+        DefaultEmailOption: CONFIRM_WITH_CODE
+        EmailMessage: The verification code to your new account is {####}
+        EmailSubject: Verify your new account
+        SmsMessage: The verification code to your new account is {####}
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/UserPool/Resource
+  UserPoolUserPoolClient40176907:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      AllowedOAuthFlows:
+        - implicit
+        - code
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthScopes:
+        - profile
+        - phone
+        - email
+        - openid
+        - aws.cognito.signin.user.admin
+      CallbackURLs:
+        - https://example.com
+      ClientName: ai-marketplace-dashboard-client
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_ADMIN_USER_PASSWORD_AUTH
+        - ALLOW_CUSTOM_AUTH
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      SupportedIdentityProviders:
+        - COGNITO
+      UserPoolId:
+        Ref: UserPool6BA7E5F2
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/UserPool/UserPoolClient/Resource
+  CognitoAuthorizerF3215DBC:
+    Type: AWS::ApiGateway::Authorizer
+    Properties:
+      IdentitySource: method.request.header.Authorization
+      Name: AIMarketplaceAssistantSimpleCognitoAuthorizer919D30C2
+      ProviderARNs:
+        - Fn::GetAtt:
+            - UserPool6BA7E5F2
+            - Arn
+      RestApiId:
+        Ref: AIMarketplacePlatformAPI
+      Type: COGNITO_USER_POOLS
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/CognitoAuthorizer/Resource
+  WebhookHandlerServiceRoleF07A4D12:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/WebhookHandler/ServiceRole/Resource
+  WebhookHandlerServiceRoleDefaultPolicyE376E30C:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - dynamodb:BatchGetItem
+              - dynamodb:BatchWriteItem
+              - dynamodb:ConditionCheckItem
+              - dynamodb:DeleteItem
+              - dynamodb:DescribeTable
+              - dynamodb:GetItem
+              - dynamodb:GetRecords
+              - dynamodb:GetShardIterator
+              - dynamodb:PutItem
+              - dynamodb:Query
+              - dynamodb:Scan
+              - dynamodb:UpdateItem
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - ConversationsTable
+                  - Arn
+              - Fn::GetAtt:
+                  - TenantsTable
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - ConversationsTable
+                        - Arn
+                    - /index/*
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - TenantsTable
+                        - Arn
+                    - /index/*
+          - Action: lambda:InvokeFunction
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - MessageHandler
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - MessageHandler
+                        - Arn
+                    - :*
+        Version: "2012-10-17"
+      PolicyName: WebhookHandlerServiceRoleDefaultPolicyE376E30C
+      Roles:
+        - Ref: WebhookHandlerServiceRoleF07A4D12
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/WebhookHandler/ServiceRole/DefaultPolicy/Resource
+  WebhookHandler:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: cdk-hnb659fds-assets-747680064475-us-east-1
+        S3Key: 7ead406c8959623d6266ed60530af71c1f9f5e9a4cd2b6e4a09d95a49c76713f.zip
+      Environment:
+        Variables:
+          TENANTS_TABLE:
+            Ref: TenantsTable
+          CONVERSATIONS_TABLE:
+            Ref: ConversationsTable
+          PRODUCTS_TABLE:
+            Ref: ProductsTable
+          EMBEDDINGS_TABLE:
+            Ref: EmbeddingsTable
+          ESCALATION_TOPIC_ARN:
+            Ref: HandoffNotificationsTopic
+          DOCUMENTS_BUCKET:
+            Ref: DocumentsS3Bucket
+          USER_POOL_ID:
+            Ref: UserPool6BA7E5F2
+          USER_POOL_CLIENT_ID:
+            Ref: UserPoolUserPoolClient40176907
+          NODE_ENV: production
+          WHAPI_API_URL: https://gate.whapi.cloud/
+          WHAPI_TOKEN: zxie3qHCVGns5Bp8EthOCziMoIz6TAYP
+          MESSAGE_HANDLER_NAME:
+            Ref: MessageHandler
+      FunctionName: ai-marketplace-platform-webhook-handler
+      Handler: index.handler
+      MemorySize: 256
+      Role:
+        Fn::GetAtt:
+          - WebhookHandlerServiceRoleF07A4D12
+          - Arn
+      Runtime: nodejs18.x
+      Timeout: 30
+    DependsOn:
+      - WebhookHandlerServiceRoleDefaultPolicyE376E30C
+      - WebhookHandlerServiceRoleF07A4D12
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/WebhookHandler/Resource
+      aws:asset:path: asset.7ead406c8959623d6266ed60530af71c1f9f5e9a4cd2b6e4a09d95a49c76713f
+      aws:asset:is-bundled: true
+      aws:asset:property: Code
+  MessageHandlerServiceRoleDF05266A:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/MessageHandler/ServiceRole/Resource
+  MessageHandlerServiceRoleDefaultPolicyD818A6AA:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - dynamodb:BatchGetItem
+              - dynamodb:BatchWriteItem
+              - dynamodb:ConditionCheckItem
+              - dynamodb:DeleteItem
+              - dynamodb:DescribeTable
+              - dynamodb:GetItem
+              - dynamodb:GetRecords
+              - dynamodb:GetShardIterator
+              - dynamodb:PutItem
+              - dynamodb:Query
+              - dynamodb:Scan
+              - dynamodb:UpdateItem
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - ConversationsTable
+                  - Arn
+              - Fn::GetAtt:
+                  - EmbeddingsTable
+                  - Arn
+              - Fn::GetAtt:
+                  - ProductsTable
+                  - Arn
+              - Fn::GetAtt:
+                  - TenantsTable
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - ConversationsTable
+                        - Arn
+                    - /index/*
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - EmbeddingsTable
+                        - Arn
+                    - /index/*
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - ProductsTable
+                        - Arn
+                    - /index/*
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - TenantsTable
+                        - Arn
+                    - /index/*
+          - Action: sns:Publish
+            Effect: Allow
+            Resource:
+              Ref: HandoffNotificationsTopic
+          - Action:
+              - s3:Abort*
+              - s3:DeleteObject*
+              - s3:GetBucket*
+              - s3:GetObject*
+              - s3:List*
+              - s3:PutObject
+              - s3:PutObjectLegalHold
+              - s3:PutObjectRetention
+              - s3:PutObjectTagging
+              - s3:PutObjectVersionTagging
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - DocumentsS3Bucket
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - DocumentsS3Bucket
+                        - Arn
+                    - /*
+          - Action:
+              - bedrock:InvokeModel
+              - bedrock:InvokeModelWithResponseStream
+            Effect: Allow
+            Resource: "*"
+        Version: "2012-10-17"
+      PolicyName: MessageHandlerServiceRoleDefaultPolicyD818A6AA
+      Roles:
+        - Ref: MessageHandlerServiceRoleDF05266A
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/MessageHandler/ServiceRole/DefaultPolicy/Resource
+  MessageHandler:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: cdk-hnb659fds-assets-747680064475-us-east-1
+        S3Key: e7eb3989e0df56c10d5cd050cdb6fd9e7def406b23e1e0a81403b6d8f3105e00.zip
+      Environment:
+        Variables:
+          TENANTS_TABLE:
+            Ref: TenantsTable
+          CONVERSATIONS_TABLE:
+            Ref: ConversationsTable
+          PRODUCTS_TABLE:
+            Ref: ProductsTable
+          EMBEDDINGS_TABLE:
+            Ref: EmbeddingsTable
+          ESCALATION_TOPIC_ARN:
+            Ref: HandoffNotificationsTopic
+          DOCUMENTS_BUCKET:
+            Ref: DocumentsS3Bucket
+          USER_POOL_ID:
+            Ref: UserPool6BA7E5F2
+          USER_POOL_CLIENT_ID:
+            Ref: UserPoolUserPoolClient40176907
+          NODE_ENV: production
+          WHAPI_API_URL: https://gate.whapi.cloud/
+          WHAPI_TOKEN: zxie3qHCVGns5Bp8EthOCziMoIz6TAYP
+      FunctionName: ai-marketplace-platform-message-handler
+      Handler: index.handler
+      MemorySize: 512
+      Role:
+        Fn::GetAtt:
+          - MessageHandlerServiceRoleDF05266A
+          - Arn
+      Runtime: nodejs18.x
+      Timeout: 60
+    DependsOn:
+      - MessageHandlerServiceRoleDefaultPolicyD818A6AA
+      - MessageHandlerServiceRoleDF05266A
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/MessageHandler/Resource
+      aws:asset:path: asset.e7eb3989e0df56c10d5cd050cdb6fd9e7def406b23e1e0a81403b6d8f3105e00
+      aws:asset:is-bundled: true
+      aws:asset:property: Code
+  ProductsApiHandlerServiceRole94495B58:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/ProductsApiHandler/ServiceRole/Resource
+  ProductsApiHandlerServiceRoleDefaultPolicyAC7E9AC9:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - dynamodb:BatchGetItem
+              - dynamodb:BatchWriteItem
+              - dynamodb:ConditionCheckItem
+              - dynamodb:DeleteItem
+              - dynamodb:DescribeTable
+              - dynamodb:GetItem
+              - dynamodb:GetRecords
+              - dynamodb:GetShardIterator
+              - dynamodb:PutItem
+              - dynamodb:Query
+              - dynamodb:Scan
+              - dynamodb:UpdateItem
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - ProductsTable
+                  - Arn
+              - Fn::GetAtt:
+                  - TenantsTable
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - ProductsTable
+                        - Arn
+                    - /index/*
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - TenantsTable
+                        - Arn
+                    - /index/*
+        Version: "2012-10-17"
+      PolicyName: ProductsApiHandlerServiceRoleDefaultPolicyAC7E9AC9
+      Roles:
+        - Ref: ProductsApiHandlerServiceRole94495B58
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/ProductsApiHandler/ServiceRole/DefaultPolicy/Resource
+  ProductsApiHandler:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: cdk-hnb659fds-assets-747680064475-us-east-1
+        S3Key: 336e9add51b6b56107de84f6e50755afbeaa5904845ed7df42b57cdb24bde911.zip
+      Environment:
+        Variables:
+          TENANTS_TABLE:
+            Ref: TenantsTable
+          CONVERSATIONS_TABLE:
+            Ref: ConversationsTable
+          PRODUCTS_TABLE:
+            Ref: ProductsTable
+          EMBEDDINGS_TABLE:
+            Ref: EmbeddingsTable
+          ESCALATION_TOPIC_ARN:
+            Ref: HandoffNotificationsTopic
+          DOCUMENTS_BUCKET:
+            Ref: DocumentsS3Bucket
+          USER_POOL_ID:
+            Ref: UserPool6BA7E5F2
+          USER_POOL_CLIENT_ID:
+            Ref: UserPoolUserPoolClient40176907
+          NODE_ENV: production
+          WHAPI_API_URL: https://gate.whapi.cloud/
+          WHAPI_TOKEN: zxie3qHCVGns5Bp8EthOCziMoIz6TAYP
+      FunctionName: ai-marketplace-platform-products-api
+      Handler: index.handler
+      MemorySize: 256
+      Role:
+        Fn::GetAtt:
+          - ProductsApiHandlerServiceRole94495B58
+          - Arn
+      Runtime: nodejs18.x
+      Timeout: 30
+    DependsOn:
+      - ProductsApiHandlerServiceRoleDefaultPolicyAC7E9AC9
+      - ProductsApiHandlerServiceRole94495B58
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/ProductsApiHandler/Resource
+      aws:asset:path: asset.336e9add51b6b56107de84f6e50755afbeaa5904845ed7df42b57cdb24bde911
+      aws:asset:is-bundled: true
+      aws:asset:property: Code
+  ImageUploadHandlerServiceRole2EC34223:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/ImageUploadHandler/ServiceRole/Resource
+  ImageUploadHandlerServiceRoleDefaultPolicy464363DB:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - s3:Abort*
+              - s3:PutObject
+              - s3:PutObjectLegalHold
+              - s3:PutObjectRetention
+              - s3:PutObjectTagging
+              - s3:PutObjectVersionTagging
+            Effect: Allow
+            Resource:
+              Fn::Join:
+                - ""
+                - - Fn::GetAtt:
+                      - ProductImagesBucket03BDA4C8
+                      - Arn
+                  - /*
+        Version: "2012-10-17"
+      PolicyName: ImageUploadHandlerServiceRoleDefaultPolicy464363DB
+      Roles:
+        - Ref: ImageUploadHandlerServiceRole2EC34223
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/ImageUploadHandler/ServiceRole/DefaultPolicy/Resource
+  ImageUploadHandler:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: cdk-hnb659fds-assets-747680064475-us-east-1
+        S3Key: 2b1ba9c5747412d8e563d4a458ad08ed44b13d24e3fae0479c7df4a643bcd7a1.zip
+      Environment:
+        Variables:
+          TENANTS_TABLE:
+            Ref: TenantsTable
+          CONVERSATIONS_TABLE:
+            Ref: ConversationsTable
+          PRODUCTS_TABLE:
+            Ref: ProductsTable
+          EMBEDDINGS_TABLE:
+            Ref: EmbeddingsTable
+          ESCALATION_TOPIC_ARN:
+            Ref: HandoffNotificationsTopic
+          DOCUMENTS_BUCKET:
+            Ref: DocumentsS3Bucket
+          USER_POOL_ID:
+            Ref: UserPool6BA7E5F2
+          USER_POOL_CLIENT_ID:
+            Ref: UserPoolUserPoolClient40176907
+          NODE_ENV: production
+          WHAPI_API_URL: https://gate.whapi.cloud/
+          WHAPI_TOKEN: zxie3qHCVGns5Bp8EthOCziMoIz6TAYP
+          IMAGES_BUCKET_NAME:
+            Ref: ProductImagesBucket03BDA4C8
+      FunctionName: ai-marketplace-platform-image-upload
+      Handler: index.handler
+      MemorySize: 256
+      Role:
+        Fn::GetAtt:
+          - ImageUploadHandlerServiceRole2EC34223
+          - Arn
+      Runtime: nodejs18.x
+      Timeout: 10
+    DependsOn:
+      - ImageUploadHandlerServiceRoleDefaultPolicy464363DB
+      - ImageUploadHandlerServiceRole2EC34223
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/ImageUploadHandler/Resource
+      aws:asset:path: asset.2b1ba9c5747412d8e563d4a458ad08ed44b13d24e3fae0479c7df4a643bcd7a1
+      aws:asset:is-bundled: true
+      aws:asset:property: Code
+  AIMarketplacePlatformAPI:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Description: API for AI Marketplace Assistant WhatsApp Bot
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      Name: AI-Marketplace-Assistant-Platform-API
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Resource
+  PlatformApiDeployment84BB24BE2cb77f2c25f8114d27c00622e394c75a:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      Description: API for AI Marketplace Assistant WhatsApp Bot
+      RestApiId:
+        Ref: AIMarketplacePlatformAPI
+    DependsOn:
+      - CognitoAuthorizerF3215DBC
+      - PlatformApiapiimages1F1E1882
+      - PlatformApiapiimagesuploadurlOPTIONSB815C28C
+      - PlatformApiapiimagesuploadurlPOSTAE4275ED
+      - PlatformApiapiimagesuploadurl0E0B3463
+      - PlatformApiapiproductsproductIdDELETE768E6A5C
+      - PlatformApiapiproductsproductIdOPTIONSE0DAEF08
+      - PlatformApiapiproductsproductIdPUT5D288417
+      - PlatformApiapiproductsproductId16F56ED0
+      - PlatformApiapiproductsGET6A5DAD13
+      - PlatformApiapiproductsOPTIONS1A1A6380
+      - PlatformApiapiproductsPOSTB7F9C37A
+      - PlatformApiapiproductsC1C4084B
+      - PlatformApiapi5DDA7FE0
+      - PlatformApidashboardGET77A16B1C
+      - PlatformApidashboard8FBCDE29
+      - PlatformApiGET0B0747D6
+      - PlatformApitenantstenantIdOPTIONSDA93D896
+      - PlatformApitenantstenantIdPUT402000D6
+      - PlatformApitenantstenantIdC9874903
+      - PlatformApitenantsGETEEB4A791
+      - PlatformApitenantsOPTIONS4E6A229C
+      - PlatformApitenants65514268
+      - WebhookGetMethod
+      - WebhookPostMethod
+      - WebhookResource
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Deployment/Resource
+      aws:cdk:do-not-refactor: true
+  PlatformApiDeploymentStageprodv275686D66:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      DeploymentId:
+        Ref: PlatformApiDeployment84BB24BE2cb77f2c25f8114d27c00622e394c75a
+      RestApiId:
+        Ref: AIMarketplacePlatformAPI
+      StageName: prod-v2
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/DeploymentStage.prod-v2/Resource
+  WebhookResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId:
+        Fn::GetAtt:
+          - AIMarketplacePlatformAPI
+          - RootResourceId
+      PathPart: webhook
+      RestApiId:
+        Ref: AIMarketplacePlatformAPI
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/webhook/Resource
+  PlatformApiwebhookGETApiPermissionAIMarketplaceAssistantSimplePlatformApi56EF5E73GETwebhookD6F96B4C:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - WebhookHandler
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws:execute-api:us-east-1:747680064475:"
+            - Ref: AIMarketplacePlatformAPI
+            - /
+            - Ref: PlatformApiDeploymentStageprodv275686D66
+            - /GET/webhook
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/webhook/GET/ApiPermission.AIMarketplaceAssistantSimplePlatformApi56EF5E73.GET..webhook
+  PlatformApiwebhookGETApiPermissionTestAIMarketplaceAssistantSimplePlatformApi56EF5E73GETwebhook2FE637CA:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - WebhookHandler
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws:execute-api:us-east-1:747680064475:"
+            - Ref: AIMarketplacePlatformAPI
+            - /test-invoke-stage/GET/webhook
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/webhook/GET/ApiPermission.Test.AIMarketplaceAssistantSimplePlatformApi56EF5E73.GET..webhook
+  WebhookGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: GET
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri:
+          Fn::Join:
+            - ""
+            - - arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/
+              - Fn::GetAtt:
+                  - WebhookHandler
+                  - Arn
+              - /invocations
+      ResourceId:
+        Ref: WebhookResource
+      RestApiId:
+        Ref: AIMarketplacePlatformAPI
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/webhook/GET/Resource
+  PlatformApiwebhookPOSTApiPermissionAIMarketplaceAssistantSimplePlatformApi56EF5E73POSTwebhook328CFAC0:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - WebhookHandler
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws:execute-api:us-east-1:747680064475:"
+            - Ref: AIMarketplacePlatformAPI
+            - /
+            - Ref: PlatformApiDeploymentStageprodv275686D66
+            - /POST/webhook
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/webhook/POST/ApiPermission.AIMarketplaceAssistantSimplePlatformApi56EF5E73.POST..webhook
+  PlatformApiwebhookPOSTApiPermissionTestAIMarketplaceAssistantSimplePlatformApi56EF5E73POSTwebhook26479C53:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - WebhookHandler
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws:execute-api:us-east-1:747680064475:"
+            - Ref: AIMarketplacePlatformAPI
+            - /test-invoke-stage/POST/webhook
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/webhook/POST/ApiPermission.Test.AIMarketplaceAssistantSimplePlatformApi56EF5E73.POST..webhook
+  WebhookPostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: POST
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri:
+          Fn::Join:
+            - ""
+            - - arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/
+              - Fn::GetAtt:
+                  - WebhookHandler
+                  - Arn
+              - /invocations
+      ResourceId:
+        Ref: WebhookResource
+      RestApiId:
+        Ref: AIMarketplacePlatformAPI
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/webhook/POST/Resource
+  PlatformApitenants65514268:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId:
+        Fn::GetAtt:
+          - AIMarketplacePlatformAPI
+          - RootResourceId
+      PathPart: tenants
+      RestApiId:
+        Ref: AIMarketplacePlatformAPI
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/tenants/Resource
+  PlatformApitenantsOPTIONS4E6A229C:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      ApiKeyRequired: false
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      Integration:
+        IntegrationResponses:
+          - ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Methods: "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+            StatusCode: "204"
+        RequestTemplates:
+          application/json: "{ statusCode: 200 }"
+        Type: MOCK
+      MethodResponses:
+        - ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Methods: true
+          StatusCode: "204"
+      ResourceId:
+        Ref: PlatformApitenants65514268
+      RestApiId:
+        Ref: AIMarketplacePlatformAPI
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/tenants/OPTIONS/Resource
+  PlatformApitenantsGETApiPermissionAIMarketplaceAssistantSimplePlatformApi56EF5E73GETtenantsF4CED3FB:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - WebhookHandler
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws:execute-api:us-east-1:747680064475:"
+            - Ref: AIMarketplacePlatformAPI
+            - /
+            - Ref: PlatformApiDeploymentStageprodv275686D66
+            - /GET/tenants
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/tenants/GET/ApiPermission.AIMarketplaceAssistantSimplePlatformApi56EF5E73.GET..tenants
+  PlatformApitenantsGETApiPermissionTestAIMarketplaceAssistantSimplePlatformApi56EF5E73GETtenantsD3AB4442:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - WebhookHandler
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws:execute-api:us-east-1:747680064475:"
+            - Ref: AIMarketplacePlatformAPI
+            - /test-invoke-stage/GET/tenants
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/tenants/GET/ApiPermission.Test.AIMarketplaceAssistantSimplePlatformApi56EF5E73.GET..tenants
+  PlatformApitenantsGETEEB4A791:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId:
+        Ref: CognitoAuthorizerF3215DBC
+      HttpMethod: GET
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri:
+          Fn::Join:
+            - ""
+            - - arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/
+              - Fn::GetAtt:
+                  - WebhookHandler
+                  - Arn
+              - /invocations
+      ResourceId:
+        Ref: PlatformApitenants65514268
+      RestApiId:
+        Ref: AIMarketplacePlatformAPI
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/tenants/GET/Resource
+  PlatformApitenantstenantIdC9874903:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId:
+        Ref: PlatformApitenants65514268
+      PathPart: "{tenantId}"
+      RestApiId:
+        Ref: AIMarketplacePlatformAPI
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/tenants/{tenantId}/Resource
+  PlatformApitenantstenantIdOPTIONSDA93D896:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      ApiKeyRequired: false
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      Integration:
+        IntegrationResponses:
+          - ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Methods: "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+            StatusCode: "204"
+        RequestTemplates:
+          application/json: "{ statusCode: 200 }"
+        Type: MOCK
+      MethodResponses:
+        - ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Methods: true
+          StatusCode: "204"
+      ResourceId:
+        Ref: PlatformApitenantstenantIdC9874903
+      RestApiId:
+        Ref: AIMarketplacePlatformAPI
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/tenants/{tenantId}/OPTIONS/Resource
+  PlatformApitenantstenantIdPUTApiPermissionAIMarketplaceAssistantSimplePlatformApi56EF5E73PUTtenantstenantIdEEFD05D2:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - WebhookHandler
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws:execute-api:us-east-1:747680064475:"
+            - Ref: AIMarketplacePlatformAPI
+            - /
+            - Ref: PlatformApiDeploymentStageprodv275686D66
+            - /PUT/tenants/*
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/tenants/{tenantId}/PUT/ApiPermission.AIMarketplaceAssistantSimplePlatformApi56EF5E73.PUT..tenants.{tenantId}
+  PlatformApitenantstenantIdPUTApiPermissionTestAIMarketplaceAssistantSimplePlatformApi56EF5E73PUTtenantstenantId53A2766E:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - WebhookHandler
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws:execute-api:us-east-1:747680064475:"
+            - Ref: AIMarketplacePlatformAPI
+            - /test-invoke-stage/PUT/tenants/*
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/tenants/{tenantId}/PUT/ApiPermission.Test.AIMarketplaceAssistantSimplePlatformApi56EF5E73.PUT..tenants.{tenantId}
+  PlatformApitenantstenantIdPUT402000D6:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId:
+        Ref: CognitoAuthorizerF3215DBC
+      HttpMethod: PUT
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri:
+          Fn::Join:
+            - ""
+            - - arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/
+              - Fn::GetAtt:
+                  - WebhookHandler
+                  - Arn
+              - /invocations
+      ResourceId:
+        Ref: PlatformApitenantstenantIdC9874903
+      RestApiId:
+        Ref: AIMarketplacePlatformAPI
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/tenants/{tenantId}/PUT/Resource
+  PlatformApiapi5DDA7FE0:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId:
+        Fn::GetAtt:
+          - AIMarketplacePlatformAPI
+          - RootResourceId
+      PathPart: api
+      RestApiId:
+        Ref: AIMarketplacePlatformAPI
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/api/Resource
+  PlatformApiapiproductsC1C4084B:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId:
+        Ref: PlatformApiapi5DDA7FE0
+      PathPart: products
+      RestApiId:
+        Ref: AIMarketplacePlatformAPI
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/api/products/Resource
+  PlatformApiapiproductsOPTIONS1A1A6380:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      ApiKeyRequired: false
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      Integration:
+        IntegrationResponses:
+          - ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Methods: "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+            StatusCode: "204"
+        RequestTemplates:
+          application/json: "{ statusCode: 200 }"
+        Type: MOCK
+      MethodResponses:
+        - ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Methods: true
+          StatusCode: "204"
+      ResourceId:
+        Ref: PlatformApiapiproductsC1C4084B
+      RestApiId:
+        Ref: AIMarketplacePlatformAPI
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/api/products/OPTIONS/Resource
+  PlatformApiapiproductsGETApiPermissionAIMarketplaceAssistantSimplePlatformApi56EF5E73GETapiproductsCBB10987:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - ProductsApiHandler
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws:execute-api:us-east-1:747680064475:"
+            - Ref: AIMarketplacePlatformAPI
+            - /
+            - Ref: PlatformApiDeploymentStageprodv275686D66
+            - /GET/api/products
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/api/products/GET/ApiPermission.AIMarketplaceAssistantSimplePlatformApi56EF5E73.GET..api.products
+  PlatformApiapiproductsGETApiPermissionTestAIMarketplaceAssistantSimplePlatformApi56EF5E73GETapiproductsC18DB37C:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - ProductsApiHandler
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws:execute-api:us-east-1:747680064475:"
+            - Ref: AIMarketplacePlatformAPI
+            - /test-invoke-stage/GET/api/products
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/api/products/GET/ApiPermission.Test.AIMarketplaceAssistantSimplePlatformApi56EF5E73.GET..api.products
+  PlatformApiapiproductsGET6A5DAD13:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId:
+        Ref: CognitoAuthorizerF3215DBC
+      HttpMethod: GET
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri:
+          Fn::Join:
+            - ""
+            - - arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/
+              - Fn::GetAtt:
+                  - ProductsApiHandler
+                  - Arn
+              - /invocations
+      ResourceId:
+        Ref: PlatformApiapiproductsC1C4084B
+      RestApiId:
+        Ref: AIMarketplacePlatformAPI
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/api/products/GET/Resource
+  PlatformApiapiproductsPOSTApiPermissionAIMarketplaceAssistantSimplePlatformApi56EF5E73POSTapiproducts88F14200:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - ProductsApiHandler
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws:execute-api:us-east-1:747680064475:"
+            - Ref: AIMarketplacePlatformAPI
+            - /
+            - Ref: PlatformApiDeploymentStageprodv275686D66
+            - /POST/api/products
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/api/products/POST/ApiPermission.AIMarketplaceAssistantSimplePlatformApi56EF5E73.POST..api.products
+  PlatformApiapiproductsPOSTApiPermissionTestAIMarketplaceAssistantSimplePlatformApi56EF5E73POSTapiproducts9DA8AE51:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - ProductsApiHandler
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws:execute-api:us-east-1:747680064475:"
+            - Ref: AIMarketplacePlatformAPI
+            - /test-invoke-stage/POST/api/products
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/api/products/POST/ApiPermission.Test.AIMarketplaceAssistantSimplePlatformApi56EF5E73.POST..api.products
+  PlatformApiapiproductsPOSTB7F9C37A:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId:
+        Ref: CognitoAuthorizerF3215DBC
+      HttpMethod: POST
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri:
+          Fn::Join:
+            - ""
+            - - arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/
+              - Fn::GetAtt:
+                  - ProductsApiHandler
+                  - Arn
+              - /invocations
+      ResourceId:
+        Ref: PlatformApiapiproductsC1C4084B
+      RestApiId:
+        Ref: AIMarketplacePlatformAPI
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/api/products/POST/Resource
+  PlatformApiapiproductsproductId16F56ED0:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId:
+        Ref: PlatformApiapiproductsC1C4084B
+      PathPart: "{productId}"
+      RestApiId:
+        Ref: AIMarketplacePlatformAPI
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/api/products/{productId}/Resource
+  PlatformApiapiproductsproductIdOPTIONSE0DAEF08:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      ApiKeyRequired: false
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      Integration:
+        IntegrationResponses:
+          - ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Methods: "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+            StatusCode: "204"
+        RequestTemplates:
+          application/json: "{ statusCode: 200 }"
+        Type: MOCK
+      MethodResponses:
+        - ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Methods: true
+          StatusCode: "204"
+      ResourceId:
+        Ref: PlatformApiapiproductsproductId16F56ED0
+      RestApiId:
+        Ref: AIMarketplacePlatformAPI
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/api/products/{productId}/OPTIONS/Resource
+  PlatformApiapiproductsproductIdPUTApiPermissionAIMarketplaceAssistantSimplePlatformApi56EF5E73PUTapiproductsproductId9D64FADF:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - ProductsApiHandler
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws:execute-api:us-east-1:747680064475:"
+            - Ref: AIMarketplacePlatformAPI
+            - /
+            - Ref: PlatformApiDeploymentStageprodv275686D66
+            - /PUT/api/products/*
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/api/products/{productId}/PUT/ApiPermission.AIMarketplaceAssistantSimplePlatformApi56EF5E73.PUT..api.products.{productId}
+  PlatformApiapiproductsproductIdPUTApiPermissionTestAIMarketplaceAssistantSimplePlatformApi56EF5E73PUTapiproductsproductId14D90A77:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - ProductsApiHandler
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws:execute-api:us-east-1:747680064475:"
+            - Ref: AIMarketplacePlatformAPI
+            - /test-invoke-stage/PUT/api/products/*
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/api/products/{productId}/PUT/ApiPermission.Test.AIMarketplaceAssistantSimplePlatformApi56EF5E73.PUT..api.products.{productId}
+  PlatformApiapiproductsproductIdPUT5D288417:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId:
+        Ref: CognitoAuthorizerF3215DBC
+      HttpMethod: PUT
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri:
+          Fn::Join:
+            - ""
+            - - arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/
+              - Fn::GetAtt:
+                  - ProductsApiHandler
+                  - Arn
+              - /invocations
+      ResourceId:
+        Ref: PlatformApiapiproductsproductId16F56ED0
+      RestApiId:
+        Ref: AIMarketplacePlatformAPI
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/api/products/{productId}/PUT/Resource
+  PlatformApiapiproductsproductIdDELETEApiPermissionAIMarketplaceAssistantSimplePlatformApi56EF5E73DELETEapiproductsproductIdEA3B835F:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - ProductsApiHandler
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws:execute-api:us-east-1:747680064475:"
+            - Ref: AIMarketplacePlatformAPI
+            - /
+            - Ref: PlatformApiDeploymentStageprodv275686D66
+            - /DELETE/api/products/*
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/api/products/{productId}/DELETE/ApiPermission.AIMarketplaceAssistantSimplePlatformApi56EF5E73.DELETE..api.products.{productId}
+  PlatformApiapiproductsproductIdDELETEApiPermissionTestAIMarketplaceAssistantSimplePlatformApi56EF5E73DELETEapiproductsproductId709CF4C8:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - ProductsApiHandler
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws:execute-api:us-east-1:747680064475:"
+            - Ref: AIMarketplacePlatformAPI
+            - /test-invoke-stage/DELETE/api/products/*
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/api/products/{productId}/DELETE/ApiPermission.Test.AIMarketplaceAssistantSimplePlatformApi56EF5E73.DELETE..api.products.{productId}
+  PlatformApiapiproductsproductIdDELETE768E6A5C:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId:
+        Ref: CognitoAuthorizerF3215DBC
+      HttpMethod: DELETE
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri:
+          Fn::Join:
+            - ""
+            - - arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/
+              - Fn::GetAtt:
+                  - ProductsApiHandler
+                  - Arn
+              - /invocations
+      ResourceId:
+        Ref: PlatformApiapiproductsproductId16F56ED0
+      RestApiId:
+        Ref: AIMarketplacePlatformAPI
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/api/products/{productId}/DELETE/Resource
+  PlatformApiapiimages1F1E1882:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId:
+        Ref: PlatformApiapi5DDA7FE0
+      PathPart: images
+      RestApiId:
+        Ref: AIMarketplacePlatformAPI
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/api/images/Resource
+  PlatformApiapiimagesuploadurl0E0B3463:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId:
+        Ref: PlatformApiapiimages1F1E1882
+      PathPart: upload-url
+      RestApiId:
+        Ref: AIMarketplacePlatformAPI
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/api/images/upload-url/Resource
+  PlatformApiapiimagesuploadurlOPTIONSB815C28C:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      ApiKeyRequired: false
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      Integration:
+        IntegrationResponses:
+          - ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Methods: "'OPTIONS,GET,PUT,POST,DELETE,PATCH,HEAD'"
+            StatusCode: "204"
+        RequestTemplates:
+          application/json: "{ statusCode: 200 }"
+        Type: MOCK
+      MethodResponses:
+        - ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Origin: true
+            method.response.header.Access-Control-Allow-Methods: true
+          StatusCode: "204"
+      ResourceId:
+        Ref: PlatformApiapiimagesuploadurl0E0B3463
+      RestApiId:
+        Ref: AIMarketplacePlatformAPI
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/api/images/upload-url/OPTIONS/Resource
+  PlatformApiapiimagesuploadurlPOSTApiPermissionAIMarketplaceAssistantSimplePlatformApi56EF5E73POSTapiimagesuploadurlDB0EB347:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - ImageUploadHandler
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws:execute-api:us-east-1:747680064475:"
+            - Ref: AIMarketplacePlatformAPI
+            - /
+            - Ref: PlatformApiDeploymentStageprodv275686D66
+            - /POST/api/images/upload-url
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/api/images/upload-url/POST/ApiPermission.AIMarketplaceAssistantSimplePlatformApi56EF5E73.POST..api.images.upload-url
+  PlatformApiapiimagesuploadurlPOSTApiPermissionTestAIMarketplaceAssistantSimplePlatformApi56EF5E73POSTapiimagesuploadurlEFDD2C00:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - ImageUploadHandler
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws:execute-api:us-east-1:747680064475:"
+            - Ref: AIMarketplacePlatformAPI
+            - /test-invoke-stage/POST/api/images/upload-url
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/api/images/upload-url/POST/ApiPermission.Test.AIMarketplaceAssistantSimplePlatformApi56EF5E73.POST..api.images.upload-url
+  PlatformApiapiimagesuploadurlPOSTAE4275ED:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: COGNITO_USER_POOLS
+      AuthorizerId:
+        Ref: CognitoAuthorizerF3215DBC
+      HttpMethod: POST
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri:
+          Fn::Join:
+            - ""
+            - - arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/
+              - Fn::GetAtt:
+                  - ImageUploadHandler
+                  - Arn
+              - /invocations
+      ResourceId:
+        Ref: PlatformApiapiimagesuploadurl0E0B3463
+      RestApiId:
+        Ref: AIMarketplacePlatformAPI
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/api/images/upload-url/POST/Resource
+  PlatformApidashboard8FBCDE29:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId:
+        Fn::GetAtt:
+          - AIMarketplacePlatformAPI
+          - RootResourceId
+      PathPart: dashboard
+      RestApiId:
+        Ref: AIMarketplacePlatformAPI
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/dashboard/Resource
+  PlatformApidashboardGETApiPermissionAIMarketplaceAssistantSimplePlatformApi56EF5E73GETdashboard3531B861:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - DashboardServerHandlerCE94A6EA
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws:execute-api:us-east-1:747680064475:"
+            - Ref: AIMarketplacePlatformAPI
+            - /
+            - Ref: PlatformApiDeploymentStageprodv275686D66
+            - /GET/dashboard
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/dashboard/GET/ApiPermission.AIMarketplaceAssistantSimplePlatformApi56EF5E73.GET..dashboard
+  PlatformApidashboardGETApiPermissionTestAIMarketplaceAssistantSimplePlatformApi56EF5E73GETdashboard79DBED15:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - DashboardServerHandlerCE94A6EA
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws:execute-api:us-east-1:747680064475:"
+            - Ref: AIMarketplacePlatformAPI
+            - /test-invoke-stage/GET/dashboard
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/dashboard/GET/ApiPermission.Test.AIMarketplaceAssistantSimplePlatformApi56EF5E73.GET..dashboard
+  PlatformApidashboardGET77A16B1C:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: GET
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri:
+          Fn::Join:
+            - ""
+            - - arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/
+              - Fn::GetAtt:
+                  - DashboardServerHandlerCE94A6EA
+                  - Arn
+              - /invocations
+      ResourceId:
+        Ref: PlatformApidashboard8FBCDE29
+      RestApiId:
+        Ref: AIMarketplacePlatformAPI
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/dashboard/GET/Resource
+  PlatformApiGETApiPermissionAIMarketplaceAssistantSimplePlatformApi56EF5E73GET350B3E5D:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - DashboardServerHandlerCE94A6EA
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws:execute-api:us-east-1:747680064475:"
+            - Ref: AIMarketplacePlatformAPI
+            - /
+            - Ref: PlatformApiDeploymentStageprodv275686D66
+            - /GET/
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/GET/ApiPermission.AIMarketplaceAssistantSimplePlatformApi56EF5E73.GET..
+  PlatformApiGETApiPermissionTestAIMarketplaceAssistantSimplePlatformApi56EF5E73GETC00A4298:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - DashboardServerHandlerCE94A6EA
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:aws:execute-api:us-east-1:747680064475:"
+            - Ref: AIMarketplacePlatformAPI
+            - /test-invoke-stage/GET/
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/GET/ApiPermission.Test.AIMarketplaceAssistantSimplePlatformApi56EF5E73.GET..
+  PlatformApiGET0B0747D6:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: GET
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri:
+          Fn::Join:
+            - ""
+            - - arn:aws:apigateway:us-east-1:lambda:path/2015-03-31/functions/
+              - Fn::GetAtt:
+                  - DashboardServerHandlerCE94A6EA
+                  - Arn
+              - /invocations
+      ResourceId:
+        Fn::GetAtt:
+          - AIMarketplacePlatformAPI
+          - RootResourceId
+      RestApiId:
+        Ref: AIMarketplacePlatformAPI
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/PlatformApi/Default/GET/Resource
+  DashboardServerHandlerServiceRoleF51D3044:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/DashboardServerHandler/ServiceRole/Resource
+  DashboardServerHandlerCE94A6EA:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: cdk-hnb659fds-assets-747680064475-us-east-1
+        S3Key: cb7af8d74295f2fbf47d5e345950aa8df0175c276f7c167d645ac3d519483834.zip
+      FunctionName: ai-marketplace-platform-dashboard-server
+      Handler: index.handler
+      MemorySize: 256
+      Role:
+        Fn::GetAtt:
+          - DashboardServerHandlerServiceRoleF51D3044
+          - Arn
+      Runtime: nodejs18.x
+      Timeout: 10
+    DependsOn:
+      - DashboardServerHandlerServiceRoleF51D3044
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/DashboardServerHandler/Resource
+      aws:asset:path: asset.cb7af8d74295f2fbf47d5e345950aa8df0175c276f7c167d645ac3d519483834
+      aws:asset:is-bundled: true
+      aws:asset:property: Code
+  CDKMetadata:
+    Type: AWS::CDK::Metadata
+    Properties:
+      Analytics: v2:deflate64:H4sIAAAAAAAA/01RzU7DMAx+Fu5dEB08QDfEDZgGnKss9Yq7NK7qhKlUfXfiphs7fT/97NhurvL1o3q402demeq0snhQ44fX5pRFqxyrwemWqmh+6oOFbHt0M5kydhxN6tDMppBortW4CeYEXsyFJdhojlWGaoee1PjF0O+IrOSu/EK2FsH520/JmTLdYa09nPWgxm3qdYlwEfw39fgLvVTeqD2wLzoU90KfobM0tMsrNyruXs9rJhLzFHoDMv1VLI0Sf4X4TiVWYlNmdXuodOmogobV2wwvwRmP5DLUrRr3lE45444smkFkYnLFUjODZ1UILA3jwkd37SNx6Ftkjmqa/mebS2R4dLWk3oPvQrycjKMavv/Jn1Qe/3jDiKs+OI8tqH3CP1pJNZkOAgAA
+    Metadata:
+      aws:cdk:path: AIMarketplaceAssistant-Simple/CDKMetadata/Default
+Outputs:
+  PlatformApiEndpoint1B8AEEBD:
+    Value:
+      Fn::Join:
+        - ""
+        - - https://
+          - Ref: AIMarketplacePlatformAPI
+          - .execute-api.us-east-1.
+          - Ref: AWS::URLSuffix
+          - /
+          - Ref: PlatformApiDeploymentStageprodv275686D66
+          - /
+  APIGatewayURL:
+    Value:
+      Fn::Join:
+        - ""
+        - - https://
+          - Ref: AIMarketplacePlatformAPI
+          - .execute-api.us-east-1.amazonaws.com/prod-v2/
+    Export:
+      Name: AIMarketplaceAssistant-Simple-APIGatewayURL
+  TenantsAPIURL:
+    Description: URL to fetch tenants list
+    Value:
+      Fn::Join:
+        - ""
+        - - https://
+          - Ref: AIMarketplacePlatformAPI
+          - .execute-api.us-east-1.amazonaws.com/prod-v2/tenants
+  WebhookURL:
+    Value:
+      Fn::Join:
+        - ""
+        - - https://
+          - Ref: AIMarketplacePlatformAPI
+          - .execute-api.us-east-1.amazonaws.com/prod-v2/webhook
+    Export:
+      Name: AIMarketplaceAssistant-Simple-WebhookURL
+  TenantsTableName:
+    Value:
+      Ref: TenantsTable
+    Export:
+      Name: AIMarketplaceAssistant-Simple-TenantsTable
+Parameters:
+  BootstrapVersion:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /cdk-bootstrap/hnb659fds/version
+    Description: Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]
+

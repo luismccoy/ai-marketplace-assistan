@@ -1,0 +1,134 @@
+{
+  "deployment": {
+    "projectName": "ai-marketplace-assistant",
+    "environments": {
+      "production": {
+        "region": "us-east-1",
+        "stackName": "AIMarketplaceAssistant-Production",
+        "enableMonitoring": true,
+        "enableAutoScaling": true,
+        "enableBackups": true
+      },
+      "staging": {
+        "region": "us-east-1", 
+        "stackName": "AIMarketplaceAssistant-Staging",
+        "enableMonitoring": true,
+        "enableAutoScaling": false,
+        "enableBackups": false
+      },
+      "development": {
+        "region": "us-east-1",
+        "stackName": "AIMarketplaceAssistant-Development", 
+        "enableMonitoring": false,
+        "enableAutoScaling": false,
+        "enableBackups": false
+      }
+    },
+    "s3": {
+      "bucketPrefix": "ai-marketplace-deployment",
+      "enableVersioning": true,
+      "enableEncryption": true,
+      "lifecyclePolicy": {
+        "transitionToIA": 30,
+        "transitionToGlacier": 90
+      }
+    },
+    "ec2Fallback": {
+      "instanceType": "t3.small",
+      "keyPairName": "ai-marketplace-assistant-key",
+      "operatingSystem": "Amazon Linux 2023",
+      "nodeJsVersion": "18+",
+      "glibcVersion": "2.34+"
+    },
+    "security": {
+      "enableEncryptionAtRest": true,
+      "enableEncryptionInTransit": true,
+      "enableAuditLogging": true,
+      "enableMFA": true,
+      "dataRetentionDays": 90
+    },
+    "monitoring": {
+      "enableCloudWatch": true,
+      "enableXRay": true,
+      "enableCustomMetrics": true,
+      "alertingEmail": "admin@example.com"
+    },
+    "costOptimization": {
+      "enableAutoScaling": true,
+      "useDynamoDBOnDemand": true,
+      "enableLambdaProvisioning": false,
+      "enableS3LifecyclePolicies": true
+    }
+  },
+  "prerequisites": {
+    "awsCli": "2.0+",
+    "nodeJs": "18+",
+    "cdk": "2.0+",
+    "permissions": [
+      "IAM role creation and management",
+      "Lambda function deployment", 
+      "DynamoDB table creation",
+      "S3 bucket operations",
+      "CloudFormation stack operations",
+      "EC2 instance management",
+      "Secrets Manager access"
+    ]
+  },
+  "deploymentSteps": [
+    "Prerequisites validation",
+    "S3 deployment bucket creation",
+    "Project build and artifact preparation", 
+    "CDK bootstrap",
+    "Main application stack deployment",
+    "EC2 fallback infrastructure deployment",
+    "Health checks and verification",
+    "Deployment summary and documentation"
+  ],
+  "fallbackOptions": {
+    "ec2Deployment": {
+      "description": "Use when local Node.js compatibility issues prevent CDK deployment",
+      "benefits": [
+        "Resolves GLIBC compatibility issues",
+        "Amazon Linux 2023 with Node.js 18+ support",
+        "Full development environment",
+        "Automated setup scripts"
+      ]
+    },
+    "cloudShell": {
+      "description": "Emergency deployment option using AWS CloudShell",
+      "benefits": [
+        "No local setup required",
+        "AWS-managed environment", 
+        "Always compatible"
+      ]
+    },
+    "docker": {
+      "description": "Containerized deployment for development",
+      "benefits": [
+        "Guaranteed Node.js compatibility",
+        "Consistent environment",
+        "No local GLIBC issues"
+      ]
+    }
+  },
+  "postDeployment": {
+    "verification": [
+      "Lambda function health checks",
+      "DynamoDB table validation",
+      "API Gateway endpoint testing",
+      "CloudWatch metrics validation"
+    ],
+    "configuration": [
+      "WhatsApp Business API credentials setup",
+      "Admin dashboard access configuration",
+      "Monitoring alerts setup",
+      "Backup procedures configuration"
+    ],
+    "monitoring": [
+      "CloudWatch dashboard setup",
+      "Custom metrics configuration",
+      "Alert thresholds configuration",
+      "Log retention policies"
+    ]
+  }
+}
